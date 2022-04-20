@@ -1,1 +1,1 @@
-# whole-brain-MRI_metastases_cls
+# Contains codes for the paper "A transformer-based deep learning approach for classifying brain metastases into primary organ sites using clinical whole brain MRI".
