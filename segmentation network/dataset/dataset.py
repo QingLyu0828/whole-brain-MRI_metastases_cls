@@ -45,6 +45,7 @@ class RandomGenerator(object):
 
 class Train_Data(Dataset):
     def __init__(self):       
+		# load data stored in hdf5 files
         path = '/gpfs/u/scratch/DTIR/DTIRqngl/Data/WFU/Contours/TR_T1_data.hdf5'
         f = h5py.File(path,'r')
         data = f['data']

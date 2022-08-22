@@ -81,6 +81,7 @@ if __name__ == "__main__":
     
     net = torch.nn.DataParallel(net)
     
+	# load model
     checkpoint = torch.load('./save_model/' + DIREC + '/model_epoch_' + str(restore_epoch) + '.pkl', map_location='cpu')
     net.load_state_dict(checkpoint['net'])
     # optimizer.load_state_dict(checkpoint['op'])

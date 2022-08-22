@@ -119,13 +119,14 @@ def trainer(gpu, ngpus_per_node, args):
         optimizer.load_state_dict(checkpoint['op'])
     scheduler = StepLR(optimizer, step_size=10, gamma=0.5)
     
-    ce_ls = []
-    dice_ls = []
-    ls = []
-    vce_ls = []
-    vdice_ls = []
-    vls = []
-    if args.continue_train:        
+	# save values to monitor the training process
+    ce_ls = [] # training cross-entropy in each epoch
+    dice_ls = [] # training dice score in each epoch
+    ls = [] # training loss in each epoch
+    vce_ls = [] # validation cross-entropy in each epoch
+    vdice_ls = [] # validation dice score in each epoch
+    vls = [] # validation loss in each epoch
+    if args.continue_train: # continue training and load previously record losses
         readmat = sio.loadmat('./save_loss/' + args.DIREC)
         load_ce_loss = readmat['ce']
         load_dice_loss = readmat['dice']
@@ -163,8 +164,8 @@ def trainer(gpu, ngpus_per_node, args):
             outputs = model(x)
             loss_ce = ce_loss(outputs, y[:].long())
             loss_dice = dice_loss(outputs, y, softmax=True)
-            loss = 1. * loss_ce + 1. * loss_dice
-            # loss = loss_ce
+            loss = 1. * loss_ce + 1. * loss_dice # training loss
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -178,7 +179,8 @@ def trainer(gpu, ngpus_per_node, args):
             tmp_ce_loss += loss_ce.item()
             tmp_dice_loss += loss_dice.item()
             tmp_loss += loss.item()
-
+		
+		# conduct validation each epoch
         for i_batch, (x, y) in enumerate(validloader):
             x, y = x.cuda(args.gpu, non_blocking=True), y.cuda(args.gpu, non_blocking=True)
             outputs = model(x)
@@ -202,9 +204,11 @@ def trainer(gpu, ngpus_per_node, args):
         vdice_ls.append(tmp_vdice_loss/countv)   
         vls.append(tmp_vloss/countv)
         
+		# record losses every epoch in .mat file
         sio.savemat('./save_loss/' + args.DIREC +'.mat', {'ce': ce_ls,'dice': dice_ls,'loss': ls,
                                                      'vce': vce_ls,'vdice': vdice_ls,'vloss': vls})
-                
+        
+		# save model       
         if (epoch_num+1) % 20 == 0:
             if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                 and args.rank % ngpus_per_node == 0):

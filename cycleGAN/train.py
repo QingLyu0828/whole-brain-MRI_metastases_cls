@@ -55,38 +55,14 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 
 args = parser.parse_args()
 
-# def calc_gradient_penalty(netD, real_data, fake_data, gpu):
-#     # print "real_data: ", real_data.size(), fake_data.size()
-#     c,s,h,w = real_data.shape
-#     alpha = torch.rand(c, s, h, w)
-#     alpha = alpha.expand(real_data.size())
-#     alpha = alpha.cuda(gpu) if torch.cuda.is_available() else alpha
-
-#     interpolates = alpha * real_data + ((1 - alpha) * fake_data)
-
-#     interpolates = interpolates.cuda(gpu)
-#     interpolates = autograd.Variable(interpolates, requires_grad=True)
-
-#     disc_interpolates = netD(interpolates)
-
-#     gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,
-#                               grad_outputs=torch.ones(disc_interpolates.size()).cuda(gpu) if torch.cuda.is_available() else torch.ones(
-#                                   disc_interpolates.size()),
-#                               create_graph=True, retain_graph=True, only_inputs=True)[0]
-#     gradients = gradients.view(gradients.size(0), -1)
-#     gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
-#     gradient_penalty = ((gradients_norm - 1) ** 2).mean()
-#     # gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
-#     return gradient_penalty
-
 def concatanate_normalize(x):
     return torch.cat(((x-0.485)/0.229, (x-0.456)/0.224, (x-0.406)/0.225), 1)
 
 def trainer(gpu, ngpus_per_node, args): 
     args.gpu = gpu
     
-    netG_A2B = Generator()
-    netG_B2A = Generator()
+    netG_A2B = Generator() # T1CE to FSPGR
+    netG_B2A = Generator() # FSPGR to T1CE
     netD_A = Discriminator()
     netD_B = Discriminator()
     vgg = Vgg16()
@@ -139,11 +115,11 @@ def trainer(gpu, ngpus_per_node, args):
     g_ls = []
     d_ls = []
     
-    adv_ls = []
-    cycle_ls = []
-    vcycle_ls = []
+    adv_ls = [] # adversarial loss
+    cycle_ls = [] # training cyclic loss
+    vcycle_ls = [] # validation cyclic loss
         
-    if args.continue_train:
+    if args.continue_train: # continue training and load previously record losses
         checkpoint = torch.load('./save_model/' + args.DIREC + '/model_latest.pkl')
         netG_A2B.load_state_dict(checkpoint['G1'])
         netG_B2A.load_state_dict(checkpoint['G2'])
@@ -208,27 +184,27 @@ def trainer(gpu, ngpus_per_node, args):
             
             fake_image_A = netG_B2A(real_image_B)
             fake_output_A = netD_A(fake_image_A)
-            loss_GAN_B2A = torch.mean((fake_output_A-1)**2)
+            loss_GAN_B2A = torch.mean((fake_output_A-1)**2) # adversarial loss1
 
             fake_image_B = netG_A2B(real_image_A)
             fake_output_B = netD_B(fake_image_B)
-            loss_GAN_A2B = torch.mean((fake_output_B-1)**2)
+            loss_GAN_A2B = torch.mean((fake_output_B-1)**2) # adversarial loss2
             
             recovered_image_A = netG_B2A(fake_image_B)
             real_A_feature = vgg(concatanate_normalize(real_image_A))
             fake_A_feature = vgg(concatanate_normalize(recovered_image_A))
             for per_num in range(4):
                 per_A_loss += 0.25 * mse(fake_A_feature[per_num], real_A_feature[per_num])
-            loss_cycle_ABA = per_A_loss
+            loss_cycle_ABA = per_A_loss # cyclic loss1
     
             recovered_image_B = netG_A2B(fake_image_A)
             real_B_feature = vgg(concatanate_normalize(real_image_B))
             fake_B_feature = vgg(concatanate_normalize(recovered_image_B))
             for per_num in range(4):
                 per_B_loss += 0.25 * mse(fake_B_feature[per_num], real_B_feature[per_num])
-            loss_cycle_BAB = per_B_loss
+            loss_cycle_BAB = per_B_loss # cyclic loss2
     
-            errG = loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
+            errG = loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB # generator loss
     
             optimizer_G.zero_grad()
             errG.backward()
@@ -252,7 +228,7 @@ def trainer(gpu, ngpus_per_node, args):
                 fake_output_A = netD_A(fake_image_A.data)
                 errD_fake_A = 0.5 * torch.mean((fake_output_A-0)**2)
                 
-                errD_A = errD_real_A + errD_fake_A
+                errD_A = errD_real_A + errD_fake_A # discriminator loss
         
                 optimizer_D_A.zero_grad()
                 errD_A.backward()
@@ -276,7 +252,7 @@ def trainer(gpu, ngpus_per_node, args):
                 fake_output_B = netD_B(fake_image_B.data)
                 errD_fake_B = 0.5 * torch.mean((fake_output_B-0)**2)
                 
-                errD_B = errD_real_B + errD_fake_B
+                errD_B = errD_real_B + errD_fake_B # discriminator loss
         
                 optimizer_D_B.zero_grad()
                 errD_B.backward()
@@ -295,6 +271,7 @@ def trainer(gpu, ngpus_per_node, args):
             tmp_cycle_loss += (loss_cycle_ABA + loss_cycle_BAB).item()
         
         
+		# conduct validation every epoch and record validation cyclic loss
         netG_A2B.eval()
         netG_A2B.train(mode=False)
         netG_B2A.eval()
@@ -329,11 +306,13 @@ def trainer(gpu, ngpus_per_node, args):
         cycle_ls.append(tmp_cycle_loss/len(trainloader))   
         vcycle_ls.append(tmp_vcycle_loss/len(validloader))   
         
+		# save generator loss, discriminator loss, adversarial loss, and cyclic losses in .mat file every epoch
         sio.savemat('./save_loss/' + args.DIREC +'.mat', {'g': g_ls,'d': d_ls,'adv': adv_ls,
                                                      'cycle': cycle_ls,'vcycle': vcycle_ls})
         if not os.path.exists('./save_model/' + args.DIREC):
                 os.makedirs('./save_model/' + args.DIREC) 
                 
+		# save models
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
             and args.rank % ngpus_per_node == 0):
             torch.save({'epoch': epoch_num+1, 'G1': netG_A2B.state_dict(), 'G2': netG_B2A.state_dict(),

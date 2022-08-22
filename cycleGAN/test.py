@@ -25,6 +25,7 @@ def norm(img):
     return (img-np.amin(img))/(np.amax(img)-np.amin(img))
 
 def inference(args, netG_A2B, restore_epoch):    
+	# read the excel to catch data info
     xlspath = '/gpfs/u/scratch/DTIR/DTIRqngl/Data/WFU/labeled_nii_info.xls'
     rb = xlrd.open_workbook(xlspath)
     sheet = rb.sheet_by_index(0)    
@@ -34,7 +35,8 @@ def inference(args, netG_A2B, restore_epoch):
     batch_size = args.batch_size
     db_test = Test_T1()
     testloader = DataLoader(db_test, batch_size=batch_size, shuffle=False)
-
+	
+	# for inference, no training
     netG_A2B.eval()  
     netG_A2B.train(mode=False)
         
@@ -72,7 +74,7 @@ def inference(args, netG_A2B, restore_epoch):
                 out2 = nib.Nifti1Image(nout2, affine=hdr.affine)
                 out2.header.get_xyzt_units()
                 name2 = '/gpfs/u/scratch/DTIR/DTIRqngl/Data/WFU/T1_nii/cycleGAN/' + str(name[0])
-                out2.to_filename(name2)          
+                out2.to_filename(name2) # save data in nii.gz file
                 print(name2)
                 
                 if next1 > 0: # save data belongs to the next case 
@@ -90,8 +92,8 @@ if __name__ == "__main__":
     continue_train = False
     restore_epoch = args.restore_epoch
     
-    netG_A2B = Generator()
-    netG_B2A = Generator()
+    netG_A2B = Generator() # T1CE to FSPGR
+    netG_B2A = Generator() # FSPGR to T1CE
     
     netG_A2B = torch.nn.DataParallel(netG_A2B)
     netG_B2A = torch.nn.DataParallel(netG_B2A)

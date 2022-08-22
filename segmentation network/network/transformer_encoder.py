@@ -182,7 +182,7 @@ class Transformer(nn.Module):
 class VisionTransformer(nn.Module):
     def __init__(self, img_size=512, num_classes=2, vis=False):
         super(VisionTransformer, self).__init__()
-        self.transformer = Transformer(img_size, vis)
+        self.transformer = Transformer(img_size, vis) 
         self.decoder = DecoderBranch()
         self.segmentation_head = SegmentationHead(
             in_channels=32,

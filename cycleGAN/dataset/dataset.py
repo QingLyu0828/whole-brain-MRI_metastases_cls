@@ -69,11 +69,13 @@ class Train_Data(Dataset):
                 index = 0
         slice_index = int(idx - sheet.cell_value(index,2))
         
+		# read T1CE data
         imgfilename = '/gpfs/u/scratch/DTIR/DTIRqngl/Data/WFU/T1_nii/Image/' + sheet.cell_value(index,0)        
         tmp1 = nib.load(imgfilename).get_fdata()
         tmp1 = np.array(tmp1)
         h,w = tmp1.shape[0:2]
         
+		# read FSPGR data
         labelfilename = '/gpfs/u/scratch/DTIR/DTIRqngl/Data/WFU/T2F_nii/Image/' + sheet.cell_value(index,1)        
         tmp2 = nib.load(labelfilename).get_fdata()
         tmp2 = np.array(tmp2)
@@ -82,7 +84,7 @@ class Train_Data(Dataset):
         img1 = tmp1[:,:,slice_index]
         tmp = 0
         img2_index = 0
-        for kk in range(c):
+        for kk in range(c): # find the most similar images based on mutual information
             img2 = tmp2[:,:,kk]
             hist_2d, _, _ = np.histogram2d(img1.ravel(),img2.ravel(),bins=20)
             mi = self.mutual_information(hist_2d)
