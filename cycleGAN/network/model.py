@@ -129,7 +129,7 @@ class Discriminator(nn.Module):
         out = self.relu2(out)
         return out   
 
-class Vgg16(torch.nn.Module):
+class Vgg16(torch.nn.Module): # for calculating perceptual loss
     def __init__(self, requires_grad=False):
         super(Vgg16, self).__init__()
         vgg_pretrained_features = models.vgg16(pretrained=True).features
