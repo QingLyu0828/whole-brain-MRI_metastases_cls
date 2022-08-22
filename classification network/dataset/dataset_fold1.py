@@ -8,6 +8,7 @@ import random
 from skimage import transform
 import os
 
+# data augmentation
 def random_rot(img1,img2,img3):
     
     k = np.random.randint(0, 3)
@@ -56,6 +57,7 @@ class Train_Data(Dataset):
         
         randomidx = random.random()
         
+		# load data in different categories. Sampling each category in a specific possibility to mitigate data unbalancing problem
         if randomidx < 0.35:
             index = random.randint(0, 795)
             xlspath = '/gpfs/u/scratch/DTIR/DTIRqngl/Data/WFU/New_Ten_Fold/fold1_T1_T2F_nii_info_TR_0.xls'
@@ -81,7 +83,8 @@ class Train_Data(Dataset):
             xlspath = '/gpfs/u/scratch/DTIR/DTIRqngl/Data/WFU/New_Ten_Fold/fold1_T1_T2F_nii_info_TR_4.xls'
             rb = xlrd.open_workbook(xlspath)
             sheet = rb.sheet_by_index(0)        
-            
+         
+		# load probability maps and two modality images
         if sheet.cell_value(index,4) == 'T1':
             base = '/gpfs/u/scratch/DTIR/DTIRqngl/Data/WFU/T1_nii'
             img1filename = base + '/Image/' + sheet.cell_value(index,0)
@@ -120,6 +123,7 @@ class Train_Data(Dataset):
             sample = self.transform(sample)  
         img1, img2, prob = sample['img1'], sample['img2'], sample['img3']
         
+		# load 3D data with 64 slices
         if c >= 64:
             thresl = int((c-64)/3)
             thresh = thresl+64
@@ -137,6 +141,7 @@ class Train_Data(Dataset):
             data3 = np.zeros((1, h, w, 64))
             data3[0,:,:,0:c] = prob
         
+		# data1: T1 CE, data2: FSPGR, data3: probability map
         data1 = np.transpose(data1, (0,3,1,2))
         data2 = np.transpose(data2, (0,3,1,2))
         data3 = np.transpose(data3, (0,3,1,2))

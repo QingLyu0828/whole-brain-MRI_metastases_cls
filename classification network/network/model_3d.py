@@ -187,12 +187,12 @@ class ClassificationNetwork(nn.Module):
     def __init__(self, num_classes=2):
         super().__init__()
         
-        self.t1_net = FeatureExtraction()
-        self.t2f_net = FeatureExtraction()     
-        self.ca = ChannelAttention3D(256, 16)
-        self.sa = SpatialAttention3D()
+        self.t1_net = FeatureExtraction() # T1CE feature extraction subnetwork
+        self.t2f_net = FeatureExtraction()  # FSPGR feature extraction subnetwork    
+        self.ca = ChannelAttention3D(256, 16) # channel attention module
+        self.sa = SpatialAttention3D() # spatial attention module
        
-        self.fc1 = nn.Linear(256*8*8*8, 128)
+        self.fc1 = nn.Linear(256*8*8*8, 128) # fully-connected layers for classification
         self.fc2 = nn.Linear(128, num_classes)
         self.dropout = nn.Dropout()
         self.relu = nn.ReLU()

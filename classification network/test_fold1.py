@@ -26,9 +26,9 @@ args = parser.parse_args()
 device = torch.device('cuda:0')
 
 def inference(args, model, restore_epoch):
-    out_pred = np.zeros((158,5))
-    out_index = np.zeros((158))
-    gt = np.zeros((158))
+    out_pred = np.zeros((158,5)) # store results after softmax function
+    out_index = np.zeros((158)) # store class index with the highest softmax output
+    gt = np.zeros((158)) # store ground truth
     
     model = model.to(device)    
         
@@ -46,10 +46,12 @@ def inference(args, model, restore_epoch):
     with torch.no_grad():
         for i_batch, (x1, x2, prob, y) in enumerate(testloader):
             b = x1.size(0)
+			# x1: T1CE, x2: FSPGR, prob: probability map, y: label
             x1, x2 = x1.to(device), x2.to(device)
             prob, y = prob.to(device), y.to(device)
             outputs = model(x1,x2,prob).data
-
+	
+			# obtain prediction results
             pred = sm(outputs)
             _, predicted = torch.max(pred.data, 1)
             
@@ -61,6 +63,7 @@ def inference(args, model, restore_epoch):
     if not os.path.exists('output/' + args.DIREC):
         os.makedirs('output/' + args.DIREC)
         
+	# store result in hdf5 file
     path = 'output/' + args.DIREC + '/' + repr(restore_epoch) + '.hdf5'
     f = h5py.File(path, 'w')
     f.create_dataset('pred', data=out_pred)
@@ -79,6 +82,7 @@ if __name__ == "__main__":
     
     net = torch.nn.DataParallel(net)
     
+	# load trained model for inference
     checkpoint = torch.load('./save_model/' + args.DIREC + '/model_latest.pkl', map_location='cpu')
     net.load_state_dict(checkpoint['net'])
     restore_epoch = checkpoint['epoch']
